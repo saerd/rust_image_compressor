@@ -23,10 +23,10 @@ fn main() {
     println!("{:?}", r);
 
     let mut b = BitVec::new();
-    let s = BitString::new("0010000000000101", 16);
+    let s = BitString::new("0010000000000101");
     println!("{:?}", s);
     b.push_bits(s);
-    let s = BitString::new("0010000000000101", 16);
+    let s = BitString::new("0010000000000101");
     println!("{:?}", s);
     b.push_bits(s);
     println!("{:?}", b);

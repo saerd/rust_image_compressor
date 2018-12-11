@@ -20,10 +20,10 @@ pub enum BitResult {
 }
 
 impl BitString {
-    pub fn new(bit_string : &str, size : u32) -> BitString {
+    pub fn new(bit_string : &str) -> BitString {
         BitString {
             bits : u32::from_str_radix(&bit_string, 2).unwrap(),
-            size
+            size : bit_string.len() as u32
         }
     }
 
