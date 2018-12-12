@@ -1,8 +1,10 @@
 mod square_matrix;
 mod bits;
+mod huffman;
 
 use square_matrix::SquareMatrix;
 use bits::{BitVec, BitString};
+use huffman::HuffmanEncoder;
 
 fn main() {
     println!("Hello, world!");
@@ -30,5 +32,24 @@ fn main() {
     println!("{:?}", s);
     b.push_bits(s);
     println!("{:?}", b);
+
+    println!("");
+
+    let mut h = HuffmanEncoder::new(
+        &[(String::from("a"), 0.2),
+          (String::from("b"), 0.1),
+          (String::from("c"), 0.25),
+          (String::from("d"), 0.45),
+         ]
+        );
+//    h.single_step(0.7);
+//    h.single_step(0.8);
+
+    let s = h.encode();
+    println!("");
+
+    h.show();
+    println!("{:#?}", s);
+
 
 }
