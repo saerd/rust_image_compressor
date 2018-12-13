@@ -97,6 +97,8 @@ fn main() {
     println!("{}", sentence);
     println!("{:?}", r);
 
+    test_file();
+
 }
 
 fn test_trie(t : &Trie<char>) {
@@ -109,4 +111,27 @@ fn test_trie(t : &Trie<char>) {
     }
 
     println!("{:#?}", s);
+}
+
+use std::io::prelude::*;
+use std::io::BufReader;
+use std::fs::File;
+
+fn test_file() {
+    let file = File::open("/home/saer/windows/Downloads/dark_8.bmp").unwrap();
+    let mut reader = BufReader::new(file);
+    let mut buffer = [0; 1078];
+    reader.read(&mut buffer);
+    let mut buffer1 = [0 ; 20];
+
+    loop {
+        match reader.read(&mut buffer1) {
+            Ok(n) if n == 0 => break,
+            Ok(n) => println!("{:?}", &buffer1[0..n]),
+            Err(_) => panic!("Something went wrong"),
+        }
+
+    }
+
+
 }
