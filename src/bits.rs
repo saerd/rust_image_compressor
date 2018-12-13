@@ -1,5 +1,6 @@
 use self::BitResult::{All, Cut};
 use std::u32::MAX;
+use std::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct BitVec {
@@ -34,6 +35,18 @@ impl BitString {
         }
     }
 
+    pub fn nums(&self) -> Vec<u32> {
+        let mut vec = Vec::new();
+        for i in (0..self.size).rev() {
+            match self.bits & (1u32 << i) {
+                0 => vec.push(0),
+                _ => vec.push(1),
+            }
+        }
+        println!("{:?}", vec);
+        vec
+    }
+
     pub fn leading_zeros(&self) -> u32 {
         32 - self.size
     }
@@ -49,6 +62,16 @@ impl BitString {
 
 }
 
+impl Display for BitVec {
+    fn fmt(&self, fd : &mut fmt::Formatter) -> fmt::Result {
+        write!(fd, "{}\n", self.offset);
+        for i in &self.bits {
+            write!(fd, "{:#034b}\n", i);
+        }
+        Ok(())
+    }
+}
+
 impl BitVec {
     pub fn new() -> BitVec {
         BitVec {
@@ -57,7 +80,7 @@ impl BitVec {
         }
     }
 
-    pub fn push_bits(&mut self, bits : BitString) {
+    pub fn push_bits(&mut self, bits : &BitString) {
         let mut add_extra = None;
         if let Some(x) = self.bits.last_mut() {
             let method = bits.offset(self.offset);
@@ -86,8 +109,46 @@ impl BitVec {
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<u32> {
-        self.bits.iter()
-    }
+    pub fn iter(&self) -> BitVecIter {
+        BitVecIter {
+            bits : &self.bits,
+            offset : self.offset,
+            curr : 0,
+            curr_index: 0
+        }
 
+    }
+}
+
+pub struct BitVecIter<'a> {
+    bits : &'a Vec<u32>,
+    offset : u32,
+    curr : u32,
+    curr_index : u32,
+}
+
+impl<'a> Iterator for BitVecIter<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = match self.bits.get(self.curr_index as usize) {
+            None => return None,
+            Some(x) => {
+                if self.curr_index == (self.bits.len() - 1) as u32 && self.curr >= self.offset {
+                    return None;
+                }
+                match x & (1u32 << (31 - self.curr)) {
+                    0 => Some(0),
+                    _ => Some(1),
+                }
+            }
+        };
+        self.curr = (self.curr + 1) % 32;
+        match self.curr {
+            0 => self.curr_index += 1,
+            _ => ()
+                
+        }
+        ret
+    }
 }

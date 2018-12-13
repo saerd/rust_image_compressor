@@ -2,17 +2,23 @@ use std::rc::Rc;
 use self::HuffLink::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash::Hash;
+
+use compressor::Compressor;
+use bits::BitString;
 
 use std::cmp::Ordering::{Less, Greater};
+
+use self::Proc::*;
 
 type NodeMut<'a> = std::cell::RefMut<'a, HuffNode>;
 type NodeRef<'a> = std::cell::Ref<'a, HuffNode>;
 
 #[derive(Debug)]
-pub struct HuffmanEncoder {
+pub struct HuffmanEncoder<T : Hash + Clone + Eq> {
 
     huff_struct : Vec<Vec<Rc<RefCell<HuffNode>>>>,
-    symbols : Vec<(String, f32)>
+    symbols : Vec<(T, f32)>
 }
 
 #[derive(Debug)]
@@ -36,6 +42,19 @@ impl HuffNode {
         }
     }
 
+    fn new_node(prob : f32) -> Rc<RefCell<HuffNode>> {
+        Rc::new(RefCell::new(HuffNode::new(prob)))
+    }
+
+    fn get(node : & Rc<RefCell<HuffNode>>) -> NodeRef {
+        (**node).borrow()
+    }
+
+    fn get_mut(node : &mut Rc<RefCell<HuffNode>>) -> NodeMut {
+        (**node).borrow_mut()
+
+    }
+
 }
 
 impl HuffLink {
@@ -44,11 +63,11 @@ impl HuffLink {
         match self {
             Solid(num, node) => {
                 ret.push_str(&num.to_string());
-                ret.push_str(&HuffmanEncoder::get(node).link.get_encoding());
+                ret.push_str(&HuffNode::get(node).link.get_encoding());
 
             }
             Dotted(node) => {
-                ret.push_str(&HuffmanEncoder::get(node).link.get_encoding());
+                ret.push_str(&HuffNode::get(node).link.get_encoding());
             }
             _ => ()
         }
@@ -62,10 +81,10 @@ enum Proc {
     Stop
 }
 
-impl HuffmanEncoder {
-    pub fn new(symbols : &[(String, f32)]) -> HuffmanEncoder {
+impl<T : Hash + Clone + Eq> HuffmanEncoder<T>{
+    pub fn new(symbols : &[(T, f32)]) -> HuffmanEncoder<T> {
         HuffmanEncoder {
-            huff_struct : vec![symbols.iter().map(|a| Self::new_node(a.1)).collect()],
+            huff_struct : vec![symbols.iter().map(|a| HuffNode::new_node(a.1)).collect()],
             symbols : Vec::from(symbols)
         }
     }
@@ -81,7 +100,7 @@ impl HuffmanEncoder {
         });
         let last = self.huff_struct.last_mut().unwrap();
         last.sort_by(|a, b| {
-           if Self::get(a).value < Self::get(b).value {
+           if HuffNode::get(a).value < HuffNode::get(b).value {
                Less
            }
            else {
@@ -91,23 +110,24 @@ impl HuffmanEncoder {
 
     }
 
-    fn last_step(&self) -> HashMap<String, String> {
+    fn last_step(&self) -> HashMap<T, BitString> {
         let mut ret = HashMap::new();
         for (node, (symbol, _)) in self.huff_struct[0].iter().zip(self.symbols.iter()){
-            let n = Self::get(node);
-            ret.insert(symbol.clone(), n.link.get_encoding());
+            let n = HuffNode::get(node);
+            let s : String = n.link.get_encoding().chars().rev().collect();
+            ret.insert(symbol.clone(), BitString::new(&s));
 
         }
         ret
     }
 
-    pub fn encode(&mut self) -> HashMap<String, String>{
+    pub fn encode(&mut self, radix : u32) -> Compressor<T>{
 
         self.start();
-        while let Proc::Cont = self.single_step() {
+        while let Cont = self.single_step(radix) {
             let last = self.huff_struct.last_mut().unwrap();
             last.sort_by(|a, b| {
-               if Self::get(a).value < Self::get(b).value {
+               if HuffNode::get(a).value < HuffNode::get(b).value {
                    Less
                }
                else {
@@ -115,37 +135,45 @@ impl HuffmanEncoder {
                }
             });
         }
-        self.last_step()
+        Compressor::from(self.last_step())
 
     }
 
-    fn single_step(&mut self) -> Proc {
-
-    //    self.huff_struct[0][0] = Rc::new(HuffNode{value : 0.1, link : Solid(Rc::new(HuffNode::new(0.2)))};
+    fn single_step(&mut self, radix : u32) -> Proc {
 
         let mut new_vec = Vec::new();
         let index = self.huff_struct.len() - 1;
 
         {
+
+            if let Stop = self.check(radix) {
+                return Stop;
+            }
+
+            let mut new_node = HuffNode::new_node(0.0);
+            let mut sum = 0.0;
             let mut nodes = self.huff_struct[index].iter_mut();
-            let mut a = Self::get_mut(nodes.next().unwrap());
             
-            if let Some(check) = nodes.next() {
-                let mut b = Self::get_mut(check);
+            for i in 0..radix {
+                if let Some(node) = nodes.next() {
+                    let mut n = HuffNode::get_mut(node);
+                    n.link = Solid(i, Rc::clone(&new_node));
+                    sum += n.value;
 
-                let new_node = Self::new_node(a.value + b.value);
-                new_vec.push(Rc::clone(&new_node));
-                a.link = Solid(0, Rc::clone(&new_node));
-                b.link = Solid(1, new_node);
+
+                }
+
             }
-            else {
-                return Proc::Stop;
+            {
+                let mut n = HuffNode::get_mut(&mut new_node);
+                n.value = sum;
             }
 
+            new_vec.push(new_node);
 
             for node in nodes {
-                let mut n = Self::get_mut(node);
-                let new_node = Self::new_node(n.value);
+                let mut n = HuffNode::get_mut(node);
+                let new_node = HuffNode::new_node(n.value);
                 new_vec.push(Rc::clone(&new_node));
                 n.link = Dotted(new_node);
             }
@@ -153,26 +181,19 @@ impl HuffmanEncoder {
 
         self.huff_struct.push(new_vec);
 
-        Proc::Cont
+        Cont
     }
 
-    fn new_node(prob : f32) -> Rc<RefCell<HuffNode>> {
-        Rc::new(RefCell::new(HuffNode::new(prob)))
-    }
+    fn check(&self, radix : u32) -> Proc {
+        match self.huff_struct.last().unwrap()
+            .iter().take(radix as usize).count() {
 
-    fn get(node : & Rc<RefCell<HuffNode>>) -> NodeRef {
-        (**node).borrow()
-    }
+            x if x == radix as usize => Cont,
+            _ => Stop
 
-    fn get_mut(node : &mut Rc<RefCell<HuffNode>>) -> NodeMut {
-        (**node).borrow_mut()
-
-    }
-
-    pub fn show(&self) {
-        println!("{:#?}", self.huff_struct);
-        println!("{:#?}", self.symbols);
+        }
 
 
     }
+
 }
