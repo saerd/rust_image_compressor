@@ -5,6 +5,10 @@ mod compressor;
 mod trie;
 mod decoder;
 
+extern crate image;
+
+use image::{GrayImage, GenericImageView};
+
 use square_matrix::SquareMatrix;
 use bits::{BitVec, BitString};
 use huffman::HuffmanEncoder;
@@ -27,9 +31,15 @@ fn main() {
         }
     }
 
+    for i in 0..len {
+        for j in 0..len {
+            println!("{:?}", m.get(i, j));
+        }
+    }
+
     let r = m.diagonal_unwrap();
     println!("{:?}", r);
-
+/*
     let mut b = BitVec::new();
     let s = BitString::new("0010000000000101");
     println!("{:?}", s);
@@ -98,6 +108,7 @@ fn main() {
     println!("{:?}", r);
 
     test_file();
+    */
 
 }
 
@@ -118,11 +129,19 @@ use std::io::BufReader;
 use std::fs::File;
 
 fn test_file() {
-    let file = File::open("/home/saer/windows/Downloads/dark_8.bmp").unwrap();
+
+    let len = 56;
+    let mut v : Vec<u8> = Vec::new();
+    v.extend(vec![25 ; len * (len / 2)]);
+    v.extend(vec![50 ; len * (len / 2)]);
+
+    image::save_buffer("image.bmp", &v, len as u32, len as u32, image::Gray(8)).unwrap();
+
+    let file = File::open("image.bmp").unwrap();
     let mut reader = BufReader::new(file);
     let mut buffer = [0; 1078];
     reader.read(&mut buffer);
-    let mut buffer1 = [0 ; 20];
+    let mut buffer1 = [0 ; 56];
 
     loop {
         match reader.read(&mut buffer1) {
@@ -132,6 +151,15 @@ fn test_file() {
         }
 
     }
+    /*
+    let img = image::open("/home/saer/windows/Downloads/dark_8.bmp").unwrap();
+    for p in img.pixels() {
+        println!("{:?}", p);
+
+//        let s : () = p;
+    }
+    */
+
 
 
 }
