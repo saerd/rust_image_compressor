@@ -4,41 +4,84 @@ mod huffman;
 mod compressor;
 mod trie;
 mod decoder;
+mod point_store;
 
 extern crate image;
 
 use image::{GrayImage, GenericImageView};
 
-use square_matrix::SquareMatrix;
+use square_matrix::{SquareMatrix, SubSquare::SSquare};
+use point_store::PStore::PointStore;
 use bits::{BitVec, BitString};
 use huffman::HuffmanEncoder;
 use compressor::Compressor;
 use trie::Trie;
 use decoder::Decoder;
 
+use std::thread;
+use std::sync::mpsc;
+
 fn main() {
     println!("Hello, world!");
 
     let len = 4;
-    let mut m = SquareMatrix::new(len);
+    let mut m : SquareMatrix<u8> = SquareMatrix::new_with(len, 0);
 
     let mut k = 1;
 
     for i in 0..len {
         for j in 0..len {
-            m.set(i, j, k);
+            m.set(j, i, k);
             k += 1;
         }
     }
 
+    /*
     for i in 0..len {
         for j in 0..len {
             println!("{:?}", m.get(i, j));
         }
     }
+    */
 
-    let r = m.diagonal_unwrap();
+    let r = m;
+    //let r = m.diagonal_unwrap();
+    //let r : Vec<_> = r.iter().map(|b| *b as f32).collect();
+    //let r = SquareMatrix::from(r, 4);
     println!("{:?}", r);
+    let sr1 = r.sub(0, 0, 2).unwrap();
+    let sr2 = r.sub(2, 0, 2).unwrap();
+    let sr3 = r.sub(0, 2, 2).unwrap();
+    let sr4 = r.sub(2, 2, 2).unwrap();
+
+    let (tx, rx) = mpsc::channel();
+
+    let mut v = Vec::new();
+    let mut m = vec![sr1, sr2, sr3, sr4];
+
+    while let Some(sr) = m.pop() {
+        let ctx = mpsc::Sender::clone(&tx);
+
+        let SSquare(m, x, y) = sr;
+        v.push(thread::spawn(move || {
+            ctx.send(PointStore(m, x, y))
+        }));
+
+    }
+
+    drop(tx);
+
+    let mut r = Vec::new();
+    for rm in rx {
+        r.push(rm);
+    }
+    r.sort();
+
+    println!("{:?}", r);
+
+
+    //th.join();
+
 /*
     let mut b = BitVec::new();
     let s = BitString::new("0010000000000101");
