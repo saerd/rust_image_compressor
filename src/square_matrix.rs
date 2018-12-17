@@ -5,6 +5,8 @@ use std::cmp::Ordering;
 
 use self::SubSquare::SSquare;
 
+use point_store::PStore::{self, PointStore};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -23,6 +25,47 @@ mod tests {
 pub struct SquareMatrix<T> {
     matrix : Vec<T>,
     size : usize,
+}
+
+pub struct MatrixIter<'a, T : 'a > {
+    iter : std::slice::Iter<'a, T>,
+    size : usize,
+    cx : usize,
+    cy : usize,
+}
+
+impl<'a, T : 'a> MatrixIter<'a, T> {
+    fn new(m : &SquareMatrix<T>) -> MatrixIter<T> {
+        MatrixIter {
+            iter : m.matrix.iter(),
+            size : m.len(),
+            cx : 0,
+            cy : 0,
+        }
+        
+    } 
+}
+
+impl<'a, T : 'a> Iterator for MatrixIter<'a, T> {
+    type Item = PStore<&'a T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(x) => { 
+                let ret = PointStore(x, self.cx, self.cy);
+                self.cx = (self.cx + 1) % self.size;
+                if self.cx == 0 {
+                    self.cy += 1;
+                }
+
+                Some(ret)
+            }
+            None => None
+        }
+
+    }
+    
+
 }
 
 #[derive(Debug)]
@@ -84,12 +127,6 @@ impl<T : Copy> SquareMatrix<T> {
         }
     }
 
-    pub fn from(from_vec : Vec<T>, size : usize) -> SquareMatrix<T> {
-        SquareMatrix {
-            matrix : from_vec,
-            size
-        }
-    }
 
     pub fn sub(&self, x : usize, y : usize, size : usize) -> Option<SubSquare<T>> {
 
@@ -108,6 +145,14 @@ impl<T : Copy> SquareMatrix<T> {
 
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.matrix.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<T> {
+        self.matrix.iter_mut()
+    }
+
+    pub fn iter_enum(&self) -> MatrixIter<T> {
+        MatrixIter::new(&self)
     }
 
     pub fn diagonal_unwrap(&self) -> Vec<T> {
@@ -161,6 +206,13 @@ impl<T : Copy> SquareMatrix<T> {
 }
 
 impl<T> SquareMatrix<T> {
+
+    pub fn from(from_vec : Vec<T>, size : usize) -> SquareMatrix<T> {
+        SquareMatrix {
+            matrix : from_vec,
+            size
+        }
+    }
 
     pub fn len(&self) -> usize {
         self.size

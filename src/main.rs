@@ -1,3 +1,11 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_parens)]
+
+extern crate jpg;
+
+use jpg::run;
+
 mod square_matrix;
 mod bits;
 mod huffman;
@@ -108,6 +116,7 @@ fn main() {
 //    println!("{:#?}", h);
  //   println!("{:#?}", s);
 
+    */
     let mut h = HuffmanEncoder::new(
         &[('a', 0.2),
           ('s', 0.1),
@@ -119,7 +128,7 @@ fn main() {
     let c = h.encode(2);
     println!("");
 
-    println!("{:#?}", h);
+    //println!("{:#?}", h);
 
     let sentence = "sssaersssersaersaerssssssssssssssr";
     let chars : Vec<_> = sentence.chars().collect();
@@ -127,7 +136,6 @@ fn main() {
     println!("{:?}", sentence);
     println!("{}", v);
 
-    /*
     let iter = v.iter();
     for i in iter {
         print!("{}", i);
@@ -142,7 +150,7 @@ fn main() {
     println!("{:#?}", t);
 
     test_trie(&t);
-    */
+    /*
 
     let d = Decoder::new(&c);
     let r = d.decode(&v);
@@ -152,6 +160,7 @@ fn main() {
 
     test_file();
     */
+    run();
 
 }
 
@@ -206,3 +215,10 @@ fn test_file() {
 
 
 }
+
+/*
+fn main() {
+    run();
+
+}
+*/
