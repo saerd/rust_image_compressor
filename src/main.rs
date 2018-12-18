@@ -29,6 +29,35 @@ use decoder::Decoder;
 use std::thread;
 use std::sync::mpsc;
 
+use std::env;
+
+fn main() {
+
+    let image = match parse_args(env::args()) {
+        Ok(image) => image,
+        Err(err) => {
+            eprintln!("{}", err);
+            std::process::exit(1);
+        }
+    };
+    match run(image) {
+        Ok(()) => (),
+        Err(err) => eprintln!("{:?}", err),
+    }
+}
+
+fn parse_args(mut args : env::Args) -> Result<String, &'static str> {
+
+    args.next();
+
+    match args.next() {
+        Some(arg) => Ok(arg),
+        None => Err("No image provided")
+    }
+}
+
+/*
+
 fn main() {
     println!("Hello, world!");
 
@@ -222,3 +251,5 @@ fn main() {
 
 }
 */
+*/
+
