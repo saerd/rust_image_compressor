@@ -10,7 +10,7 @@ mod trie;
 mod decoder;
 mod point_store;
 
-use square_matrix::{SquareMatrix, SubSquare::SSquare};
+use square_matrix::{SquareMatrix, SubSquare::SSquare, from_diagonal_wrap};
 use point_store::PStore::PointStore;
 use bits::{BitVec, BitString};
 use huffman::HuffmanEncoder;
@@ -25,6 +25,8 @@ use std::f32::consts::PI;
 
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom, Read};
+
+
 
 fn jpg_compress(pixels : SquareMatrix<u8>) {
 
@@ -59,12 +61,34 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
 
     v.sort();
 
-    for i in v.iter() {
-        println!("{:?}", i);
+    let mut jpg = SquareMatrix::new_with(pixels.len(), 0);
+
+    for PointStore(d, x, y) in v.iter() {
+//        println!("{:?}", d);
+//        let s = from_diagonal_wrap(&d, 8);
+        let r =decompress_into_matrix(&d);
+
+        jpg.copy_sub(&SSquare(r, *x, *y));
     }
+
+//    println!("{}", pixels);
+
+//    println!("{}", jpg);
+
+//    println!("{}", jpg.matrix.len());
+    image::save_buffer("test.bmp", &pixels.matrix, jpg.len() as u32, jpg.len() as u32, image::Gray(8)).unwrap();
 
 //    v
 
+}
+
+fn alpha(x : usize) -> f32 {
+    if x == 0 {
+        0.5
+    }
+    else {
+        1.0
+    }
 }
 
 static Q : [f32 ; 64] = [
@@ -100,10 +124,38 @@ fn compress_matrix(pixels : &SquareMatrix<u8>) -> Vec<i8> {
     res.diagonal_unwrap().iter().map(|x| x.round() as i8).collect()
 }
 
+fn decompress_into_matrix(bytes : &[i8]) -> SquareMatrix<u8> {
+
+    let mut dctq = from_diagonal_wrap(bytes, 8);
+    let mut q = Q.iter();
+
+    for i in dctq.iter_mut() {
+        *i *= q.next().unwrap();
+    }
+
+    let mut res = SquareMatrix::new_with(8, 0);
+
+    for i in 0..8 {
+        for j in 0..8 {
+            let e = res.get_mut(j, i).unwrap();
+            *e = (idct(j, i, &dctq).round() + 128.0) as u8;
+        }
+    }
+
+    res
+}
+
 fn dct(u : usize, v : usize, pixels : &SquareMatrix<f32>) -> f32 {
     0.125 * pixels.iter_enum().fold(0.0, 
                  |acc, PointStore(e, x, y) | {
                         acc + (e * dct_cos(x, u) * dct_cos(y, v))
+                 })
+}
+
+fn idct(u : usize, v : usize, pixels : &SquareMatrix<f32>) -> f32 {
+    0.5 * pixels.iter_enum().fold(0.0, 
+                 |acc, PointStore(e, x, y) | {
+                        acc + (alpha(x) * alpha(y) * e * dct_cos(u, x) * dct_cos(v, y))
                  })
 }
 
@@ -135,24 +187,24 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
         std::mem::transmute::<[u8; 8], (i32, i32)>(buffer)
     };
 
-    let mut bytes = Vec::with_capacity((height * width) as usize);
+    println!("{}, {}, {}", offset, height.abs(), width.abs());
+
+    let mut bytes = Vec::with_capacity((height.abs() * width.abs()) as usize);
 
     reader.seek(SeekFrom::Start(offset as u64))?;
 
     println!("{}", bytes.len());
 
-    reader.read_to_end(&mut bytes);
-
-    println!("{}, {}, {}", offset, height, width);
+    reader.read_to_end(&mut bytes)?;
 
     println!("{}", bytes.len());
 
     jpg_compress(SquareMatrix::from(bytes, height as usize));
 
-//    image::save_buffer("test.bmp", &bytes, height as u32, width as u32, image::RGB(8)).unwrap();
-
+//    image::save_buffer("test.bmp", &bytes, height as u32, width as u32, image::Gray(8)).unwrap();
 
     /*
+
     let v = vec![
     
         52, 55, 61, 66, 70, 61, 64, 73,
@@ -167,8 +219,9 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
 //    let v = vec![0; 64];
 
 
-    let r = jpg_compress(&SquareMatrix::from(v, 8));
+    let r = jpg_compress(SquareMatrix::from(v, 8));
     println!("{:?}", r);
+
     */
 
     Ok(())

@@ -23,7 +23,7 @@ mod tests {
 
 #[derive(Debug)]
 pub struct SquareMatrix<T> {
-    matrix : Vec<T>,
+    pub matrix : Vec<T>,
     size : usize,
 }
 
@@ -65,6 +65,22 @@ impl<'a, T : 'a> Iterator for MatrixIter<'a, T> {
 
     }
     
+
+}
+
+impl<T : Display> Display for SquareMatrix<T> {
+
+    fn fmt(&self, fmt : &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for i in 0..self.size {
+            for j in 0..self.size {
+                write!(fmt, "{: >3} ", self.get(j, i).unwrap());
+            }
+            write!(fmt, "\n");
+        }
+
+        Ok(())
+    }
+
 
 }
 
@@ -143,6 +159,18 @@ impl<T : Copy> SquareMatrix<T> {
         }
     }
 
+    pub fn copy_sub(&mut self, cpy : &SubSquare<T>) {
+
+        let SSquare(m, u, v) = cpy;
+        if(u + m.len() > self.len() || v + m.len() > self.len() ) {
+            return;
+        }
+
+        for PointStore(c, x, y) in m.iter_enum() {
+            self.set(x + u, y + v, *c); // CHECK THIS FUNCTION
+        }
+    }
+
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.matrix.iter()
     }
@@ -176,34 +204,119 @@ impl<T : Copy> SquareMatrix<T> {
         ret
     }
 
-    pub fn diagonal_strip(&self, x : usize, y: usize, dir : &Dir) -> Vec<T> {
+    pub fn diagonal_strip(&self, x : usize, y: usize, dir : &Dir) -> Vec<&T> {
         match dir {
             Up => self.unwrap_d_up(x, y),
             Down => self.unwrap_d_down(x, y)
         }
     }
 
-    fn unwrap_d_up(&self, x: usize, y: usize) -> Vec<T> {
+    fn unwrap_d_up(&self, x: usize, y: usize) -> Vec<&T> {
         let mut offset = 0;
         let mut ret = Vec::new();
         while let Some(a) = self.get_at(x as i32 - offset, y as i32 + offset) {
             offset += 1;
-            ret.push(*a);
+            ret.push(a);
         }
         ret
     }
 
-    fn unwrap_d_down(&self, x: usize, y: usize) -> Vec<T> {
+    fn unwrap_d_down(&self, x: usize, y: usize) -> Vec<&T> {
         let mut offset = 0;
         let mut ret = Vec::new();
         while let Some(a) = self.get_at(x as i32 - offset, y as i32 + offset) {
             offset += 1;
-            ret.push(*a);
+            ret.push(a);
         }
         ret.iter().rev().cloned().collect()
 
     }
+
+
 }
+
+struct RevCounter {
+    curr : usize,
+    rev : usize,
+    switch : bool,
+}
+
+impl RevCounter {
+    pub fn new(rev : usize) -> RevCounter {
+        RevCounter {
+            curr : 0,
+            rev,
+            switch : false
+        }
+    }
+
+    pub fn count(&mut self) -> Option<PStore<usize>> {
+        if self.switch {
+            self.curr -= 1;
+            if self.curr == 0 {
+                None
+            }
+            else {
+                Some(PointStore(self.curr, self.rev - self.curr, self.rev - 1))
+            }
+        }
+        else {
+            self.curr += 1;
+            if self.curr == self.rev {
+                self.switch = true;
+            }
+            Some(PointStore(self.curr, 0, self.curr - 1))
+        }
+    }
+}
+
+pub fn from_diagonal_wrap(nums : &[i8], size : usize) -> SquareMatrix<f32> {
+    let mut ret = SquareMatrix::new_with(size, 0.0);
+    let mut counter = RevCounter::new(size);
+    let mut curr = 0;
+    let mut cont = true;
+    let mut dir = Down;
+    while let Some(PointStore(length, x, y)) = counter.count() {
+        if !cont { break }
+
+        let sl  = if curr + length > nums.len() {
+            cont = false;
+            &nums[curr..]
+        }
+        else {
+            &nums[curr..(curr + length)]
+        };
+
+        copy_diagonal(&mut ret, PointStore(&sl, x, y), &dir);
+
+
+        dir.switch();
+        curr += length;
+    }
+    ret
+}
+
+fn copy_diagonal(matrix : &mut SquareMatrix<f32>, points : PStore<&[i8]>, dir : &Dir){
+    let PointStore(p, x, y) = points;
+
+    let mut offset = 0;
+    match dir {
+        Up => {
+            for i in p.iter() {
+                matrix.set(x + offset, y - offset, *i as f32);
+                offset += 1;
+            }
+
+        }
+        Down => {
+            for i in p.iter().rev() {
+                matrix.set(x + offset, y - offset, *i as f32);
+                offset += 1;
+            }
+        }
+    };
+}
+
 
 impl<T> SquareMatrix<T> {
 
@@ -233,10 +346,14 @@ impl<T> SquareMatrix<T> {
         }
     }
 
-    pub fn set(&mut self, x : usize, y : usize, new : T) {
+    pub fn set(&mut self, x : usize, y : usize, new : T) -> bool{
         let v = self.get_mut(x, y);
         if let Some(c) = v {
             *c = new;
+            true
+        }
+        else {
+            false
         }
         /*
         let len = self.matrix.len();
@@ -286,3 +403,4 @@ impl Dir {
         }
     }
 }
+
