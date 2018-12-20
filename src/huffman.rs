@@ -82,6 +82,14 @@ enum Proc {
 }
 
 impl<T : Hash + Clone + Eq> HuffmanEncoder<T>{
+    pub fn from(map : HashMap<T, f32>) -> HuffmanEncoder<T> {
+        let mut v = Vec::new();
+
+        for _ in map.iter().map(|(key, val)| v.push((key.clone(), *val))) {}
+
+        HuffmanEncoder::new(&v)
+    }
+
     pub fn new(symbols : &[(T, f32)]) -> HuffmanEncoder<T> {
         HuffmanEncoder {
             huff_struct : vec![symbols.iter().map(|a| HuffNode::new_node(a.1)).collect()],

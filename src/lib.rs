@@ -18,8 +18,10 @@ use compressor::Compressor;
 use trie::Trie;
 use decoder::Decoder;
 
+use std::collections::HashMap;
+
 use std::thread;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 
 use std::f32::consts::PI;
 
@@ -55,14 +57,65 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
 
     drop(tx);
 
+    let mut freq_count : HashMap<Option<i8>, f32> = HashMap::new();
+    let mut total = ((pixels.len() * pixels.len()) / 64) as f32;
+
+    freq_count.insert(None, total);
+
+    for PointStore(nums, x, y) in rx {
+
+        frequency_count(&mut freq_count, &nums);
+        total += nums.len() as f32;
+
+        v.push(PointStore(nums, x, y));
+    }
+
+    for _ in freq_count.values_mut().map(|x| *x /= total) {}
+
+    let mut encoder = HuffmanEncoder::from(freq_count);
+    let compressor = Compressor::from_option(encoder.encode(2));
+
+    println!("{:#?}\n", compressor);
+
+
+    let (delimiter, compressor) = compressor;
+
+    let (tx, rx) = mpsc::channel();
+
+    let comp_ref = Arc::new(compressor);
+
+    while let Some(PointStore(nums, x, y)) = v.pop() {
+
+        let ctx = mpsc::Sender::clone(&tx);
+        let comp = Arc::clone(&comp_ref);
+
+        thread::spawn(move || {
+            ctx.send(PointStore(comp.compress(&nums), x, y))
+        });
+
+    }
+
+    drop(tx);
+
+    let mut v = Vec::new();
+
     for ps in rx {
         v.push(ps);
     }
 
     v.sort();
 
+    let decoder = Decoder::new(&comp_ref);
+
     let mut jpg = SquareMatrix::new_with(pixels.len(), 0);
 
+    for PointStore(encoded, x, y) in v.iter() {
+        let d = decoder.decode(&encoded);
+        let r = decompress_into_matrix(&d);
+        jpg.copy_sub(&SSquare(r, *x, *y));
+    }
+
+    /*
     for PointStore(d, x, y) in v.iter() {
 //        println!("{:?}", d);
 //        let s = from_diagonal_wrap(&d, 8);
@@ -71,11 +124,13 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
         jpg.copy_sub(&SSquare(r, *x, *y));
     }
 
+
 //    println!("{}", pixels);
 
 //    println!("{}", jpg);
 
 //    println!("{}", jpg.matrix.len());
+    */
     image::save_buffer("test.bmp", &pixels.matrix, jpg.len() as u32, jpg.len() as u32, image::Gray(8)).unwrap();
 
 //    v
@@ -121,7 +176,8 @@ fn compress_matrix(pixels : &SquareMatrix<u8>) -> Vec<i8> {
         *i /= q.next().unwrap();
     }
 
-    res.diagonal_unwrap().iter().map(|x| x.round() as i8).collect()
+    let res = trim_zero(res.diagonal_unwrap()).iter().map(|x| x.round() as i8).collect();
+    res
 }
 
 fn decompress_into_matrix(bytes : &[i8]) -> SquareMatrix<u8> {
@@ -161,6 +217,24 @@ fn idct(u : usize, v : usize, pixels : &SquareMatrix<f32>) -> f32 {
 
 fn dct_cos(x : usize, u : usize) -> f32{
     ((((2 * x + 1) * u) as f32) * (PI / 16.0)).cos()
+}
+
+fn trim_zero(mut nums : Vec<f32>) -> Vec<f32> {
+    while let Some(x) = nums.pop() {
+        if x.round() != 0.0 {
+            nums.push(x);
+            break;
+        }
+    }
+    nums
+}
+
+fn frequency_count(counts : &mut HashMap<Option<i8>, f32>, nums : &[i8]) {
+    for _ in nums.iter().map(|x| {
+        let s = counts.entry(Some(*x)).or_insert(0.0);
+        *s += 1.0;
+    }) {}
+
 }
 
 pub fn run(image : String) -> Result<(), std::io::Error> {
@@ -203,8 +277,8 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
 
 //    image::save_buffer("test.bmp", &bytes, height as u32, width as u32, image::Gray(8)).unwrap();
 
-    /*
 
+    /*
     let v = vec![
     
         52, 55, 61, 66, 70, 61, 64, 73,
@@ -221,8 +295,8 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
 
     let r = jpg_compress(SquareMatrix::from(v, 8));
     println!("{:?}", r);
-
     */
+
 
     Ok(())
 

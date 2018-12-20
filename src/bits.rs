@@ -9,7 +9,7 @@ pub struct BitVec {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct BitString {
     bits : u32,
     size : u32,
@@ -43,7 +43,6 @@ impl BitString {
                 _ => vec.push(1),
             }
         }
-        println!("{:?}", vec);
         vec
     }
 

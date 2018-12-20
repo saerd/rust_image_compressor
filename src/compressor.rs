@@ -43,3 +43,23 @@ impl<T: Hash + Clone + Eq> Compressor<T>{
 
 }
 
+impl<T: Hash + Clone + Eq> Compressor<T> {
+
+    pub fn from_option(comp : Compressor<Option<T>>) -> (Option<BitString>, Compressor<T>) {
+
+        let mut none = None;
+        let mut map = HashMap::new();
+        for (key, value) in comp.get_map() {
+            match key {
+                Some(x) => {
+                    map.insert(x.clone(), *value);
+                }
+                None => none = Some(*value),
+            }
+        }
+        (none, Compressor::from(map))
+
+    }
+
+}
+
