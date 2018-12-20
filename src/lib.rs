@@ -28,7 +28,9 @@ use std::f32::consts::PI;
 use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom, Read};
 
+extern crate image;
 
+use image::{GrayImage, GenericImageView};
 
 fn jpg_compress(pixels : SquareMatrix<u8>) {
 
@@ -73,7 +75,6 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
     for _ in freq_count.values_mut().map(|x| *x /= total as f32) {}
 
     let mut encoder = HuffmanEncoder::from(freq_count);
-    println!("{:#?}", encoder);
     let compressor = Compressor::from_option(encoder.encode(2));
 
     println!("{:#?}\n", compressor);
@@ -232,7 +233,19 @@ fn frequency_count(counts : &mut HashMap<Option<i8>, f32>, nums : &[i8]) {
 
 pub fn run(image : String) -> Result<(), std::io::Error> {
 
-    let file = File::open(&image)?;
+    let mut img = image::open(&image).unwrap();
+    let (mut height, mut width) = img.dimensions();
+    if height > width {
+        height = width;
+    }
+    else {
+        width = height;
+    }
+
+    let img = image::imageops::crop(&mut img, 0, 0, height, width);
+    image::imageops::grayscale(&img).save("tmp.bmp");
+
+    let file = File::open("tmp.bmp")?;
 
     let mut reader = BufReader::new(file);
 
@@ -266,11 +279,9 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
 
     println!("{}", bytes.len());
 
-//    jpg_compress(SquareMatrix::from(bytes, height as usize));
+    jpg_compress(SquareMatrix::from(bytes, height as usize));
 
-//    image::save_buffer("test.bmp", &bytes, height as u32, width as u32, image::Gray(8)).unwrap();
-
-
+    /*
     let v = vec![
     
         52, 55, 61, 66, 70, 61, 64, 73,
@@ -282,11 +293,12 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
         85, 71, 64, 59, 55, 61, 65, 83,
         87, 79, 69, 68, 65, 76, 78, 94
     ];
-    let v = vec![0; 64];
+//    let v = vec![0; 64];
 
 
     let r = jpg_compress(SquareMatrix::from(v, 8));
     println!("{:?}", r);
+    */
 
 
     Ok(())

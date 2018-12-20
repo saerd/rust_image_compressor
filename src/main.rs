@@ -14,9 +14,6 @@ mod trie;
 mod decoder;
 mod point_store;
 
-extern crate image;
-
-use image::{GrayImage, GenericImageView};
 
 use square_matrix::{SquareMatrix, SubSquare::SSquare};
 use point_store::PStore::PointStore;

@@ -122,7 +122,6 @@ impl<T : Hash + Clone + Eq> HuffmanEncoder<T>{
         let mut ret = HashMap::new();
         for (node, (symbol, _)) in self.huff_struct[0].iter().zip(self.symbols.iter()){
             let n = HuffNode::get(node);
-            println!("{:?}", n);
             let mut s : String = n.link.get_encoding().chars().rev().collect();
             if s == "" {
                 s = "0".to_string();
