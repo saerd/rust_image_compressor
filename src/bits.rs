@@ -128,7 +128,7 @@ impl BitVec {
         }
         if let All(add) = bits.offset(0) {
             self.bits.push(add);
-            self.offset = bits.size;
+            self.offset = bits.size % 32;
 
         }
     }

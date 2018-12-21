@@ -29,7 +29,9 @@ use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom, Read};
 
 extern crate image;
+extern crate threadpool;
 
+use threadpool::ThreadPool;
 use image::{GrayImage, GenericImageView};
 
 fn jpg_compress(pixels : SquareMatrix<u8>) {
@@ -40,14 +42,15 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
     let mut v = Vec::new();
 
     let (tx, rx) = mpsc::channel();
+    let pool = ThreadPool::new(20);
 
     while y < pixels.len() {
         while let Some(SSquare(m, _, _)) = pixels.sub(x, y, 8) {
 
             let ctx = mpsc::Sender::clone(&tx);
 
-            thread::spawn(move || {
-                ctx.send(PointStore(compress_matrix(&m), x, y))
+            pool.execute(move || {
+                ctx.send(PointStore(compress_matrix(&m), x, y));
             });
 
 
@@ -91,9 +94,9 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
         let ctx = mpsc::Sender::clone(&tx);
         let comp = Arc::clone(&comp_ref);
 
-        thread::spawn(move || {
+        pool.execute(move || {
             let compressed = comp.compress(&nums[1..]);
-            ctx.send(PointStore((nums[0], compressed), x, y))
+            ctx.send(PointStore((nums[0], compressed), x, y));
         });
 
     }
@@ -310,9 +313,8 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
 
     println!("{}", bytes.len());
 
-    jpg_compress(SquareMatrix::from(bytes, height as usize));
+//    jpg_compress(SquareMatrix::from(bytes, height as usize));
 
-    /*
     let v = vec![
     
         52, 55, 61, 66, 70, 61, 64, 73,
@@ -324,12 +326,12 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
         85, 71, 64, 59, 55, 61, 65, 83,
         87, 79, 69, 68, 65, 76, 78, 94
     ];
-//    let v = vec![0; 64];
+    let mut v = vec![0; 2000 * 1000];
+    v.extend(&vec![255; 2000 * 1000]);
 
 
-    let r = jpg_compress(SquareMatrix::from(v, 8));
+    let r = jpg_compress(SquareMatrix::from(v, 2000));
     println!("{:?}", r);
-    */
 
 
     Ok(())

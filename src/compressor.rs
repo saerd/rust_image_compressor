@@ -29,18 +29,6 @@ impl<T: Hash + Clone + Eq> Compressor<T>{
         &self.map
     }
 
-    /*
-    pub fn from_map(map : &HashMap<T, Vec<u32>>) -> Compressor<T> {
-        let mut ret = HashMap::new();
-        {
-            let consume = map.iter().map(|(key, val)| ret.insert(key.clone(), BitString::from_nums(&val)));
-            for _ in consume {}
-        }
-        Self::from(ret)
-    }
-    */
-
-
 }
 
 impl<T: Hash + Clone + Eq> Compressor<T> {
