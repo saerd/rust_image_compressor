@@ -75,16 +75,16 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
     for _ in freq_count.values_mut().map(|x| *x /= total as f32) {}
 
     let mut encoder = HuffmanEncoder::from(freq_count);
-    let compressor = Compressor::from_option(encoder.encode(2));
+    let (delimiter, compressor) = Compressor::from_option(encoder.encode(2));
+    let delimiter = delimiter.unwrap();
 
-    println!("{:#?}\n", compressor);
-
-
-    let (delimiter, compressor) = compressor;
 
     let (tx, rx) = mpsc::channel();
 
     let comp_ref = Arc::new(compressor);
+
+    println!("{:#?}\n", comp_ref);
+
 
     while let Some(PointStore(nums, x, y)) = v.pop() {
 
@@ -92,7 +92,8 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
         let comp = Arc::clone(&comp_ref);
 
         thread::spawn(move || {
-            ctx.send(PointStore((nums[0], comp.compress(&nums[1..])), x, y))
+            let compressed = comp.compress(&nums[1..]);
+            ctx.send(PointStore((nums[0], compressed), x, y))
         });
 
     }
@@ -107,19 +108,49 @@ fn jpg_compress(pixels : SquareMatrix<u8>) {
 
     v.sort();
 
+    let mut save = BitVec::new();
+    let mut firsts = Vec::new();
+
+    println!("{:?}", delimiter);
+
+    for PointStore((first, encoded), x, y) in v.iter() {
+        save.push_bitvec(&encoded);
+        save.push_bits(&delimiter);
+        firsts.push((*first, *x, *y));
+    }
+
+    println!("picture data length is {} bytes" , firsts.len() + save.len() * 4);
+
+    let decoder = Decoder::new(&Compressor::to_option(delimiter, &comp_ref));
+
+    let decoded = decoder.decode(&save);
+
+    let mut back = vec![Vec::new()];
+
+    for _ in decoded.iter().map(|s| match s {
+        Some(x) => back.last_mut().unwrap().push(*x),
+        None => back.push(Vec::new())
+    }) {}
+
+    back.pop();
+
+    //println!("{:?}", decoded);
+    //println!("{:?}", back);
+
     let decoder = Decoder::new(&comp_ref);
 
     let mut jpg = SquareMatrix::new_with(pixels.len(), 0);
 
-    for PointStore((first, encoded), x, y) in v.iter() {
-        let d = decoder.decode(&encoded);
+//    for PointStore((first, encoded), x, y) in v.iter() {
+
+    for (d, &(first, x, y)) in back.iter().zip(firsts.iter()) {
 
         let mut s = Vec::with_capacity(d.len() + 1);
-        s.push(*first);
-        s.extend(&d);
+        s.push(first);
+        s.extend(d);
 
         let r = decompress_into_matrix(&s);
-        jpg.copy_sub(&SSquare(r, *x, *y));
+        jpg.copy_sub(&SSquare(r, x, y));
     }
 
     image::save_buffer("test.bmp", &pixels.matrix, jpg.len() as u32, jpg.len() as u32, image::Gray(8)).unwrap();
@@ -243,7 +274,7 @@ pub fn run(image : String) -> Result<(), std::io::Error> {
     }
 
     let img = image::imageops::crop(&mut img, 0, 0, height, width);
-    image::imageops::grayscale(&img).save("tmp.bmp");
+    image::imageops::flip_vertical(&image::imageops::grayscale(&img)).save("tmp.bmp")?;
 
     let file = File::open("tmp.bmp")?;
 

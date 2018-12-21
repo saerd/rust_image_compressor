@@ -53,8 +53,8 @@ fn parse_args(mut args : env::Args) -> Result<String, &'static str> {
     }
 }
 
-/*
 
+/*
 fn main() {
     println!("Hello, world!");
 
@@ -176,7 +176,7 @@ fn main() {
     println!("{:#?}", t);
 
     test_trie(&t);
-    /*
+
 
     let d = Decoder::new(&c);
     let r = d.decode(&v);
@@ -184,9 +184,7 @@ fn main() {
     println!("{}", sentence);
     println!("{:?}", r);
 
-    test_file();
-    */
-    run();
+//    test_file();
 
 }
 
@@ -241,12 +239,12 @@ fn test_file() {
 
 
 }
+*/
 
 /*
 fn main() {
     run();
 
 }
-*/
 */
 

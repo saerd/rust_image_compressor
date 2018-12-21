@@ -61,5 +61,15 @@ impl<T: Hash + Clone + Eq> Compressor<T> {
 
     }
 
+    pub fn to_option(delimiter : BitString, comp : &Compressor<T>) -> Compressor<Option<T>> {
+        let mut map = HashMap::new();
+        map.insert(None, delimiter);
+        for (key, value) in comp.get_map() {
+            map.insert(Some(key.clone()), *value);
+        }
+        Compressor::from(map)
+
+    }
+
 }
 

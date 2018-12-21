@@ -79,21 +79,46 @@ impl BitVec {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.bits.len()
+    }
+
+    pub fn push_bitvec(&mut self, bits : &BitVec) {
+        let bv = BitVec::new();
+        for (i, &b) in bits.bits.iter().enumerate() {
+            if(i == bits.bits.len() - 1 && bits.offset != 0) {
+                self.push_bits(&BitString::from(b >> (32 - bits.offset), bits.offset));
+            }
+            else {
+                self.push_bits(&BitString::from(b, 32));
+            };
+        }
+    }
+
     pub fn push_bits(&mut self, bits : &BitString) {
         let mut add_extra = None;
         if let Some(x) = self.bits.last_mut() {
-            let method = bits.offset(self.offset);
-            self.offset = (self.offset + bits.size) % 32;
-            match method {
-                All(mask) => {
-                    *x |= mask;
-                    return;
-                }
-                Cut(mask, extra) => {
-                    *x |= mask;
-                    add_extra = Some(BitString::from(extra, self.offset));
-                }
+            let new_pos = self.offset;
+            self.offset = (new_pos + bits.size) % 32;
+
+            if new_pos == 0 {
+                add_extra = Some(*bits);
             }
+            else {
+
+                let method = bits.offset(new_pos);
+                match method {
+                    All(mask) => {
+                        *x |= mask;
+                        return;
+                    }
+                    Cut(mask, extra) => {
+                        *x |= mask;
+                        add_extra = Some(BitString::from(extra, self.offset));
+                    }
+                }
+
+            } 
         }
         if let Some(extra) = add_extra {
             if let All(add) = extra.offset(0) {
